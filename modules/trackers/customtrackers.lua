@@ -892,10 +892,10 @@ local function StyleTrackerIcon(icon, config)
     icon.tex:SetTexCoord(left, right, top, bottom)
 
     -- Duration text style
-    local fontPath = GetGeneralFont()
     local fontOutline = GetGeneralFontOutline()
+    local durationFontPath = config.durationFont and LSM:Fetch("font", config.durationFont) or GetGeneralFont()
 
-    icon.durationText:SetFont(fontPath, config.durationSize or 14, fontOutline)
+    icon.durationText:SetFont(durationFontPath, config.durationSize or 14, fontOutline)
     local dColor = config.durationColor or {1, 1, 1, 1}
     icon.durationText:SetTextColor(dColor[1], dColor[2], dColor[3], dColor[4] or 1)
     icon.durationText:ClearAllPoints()
@@ -912,7 +912,7 @@ local function StyleTrackerIcon(icon, config)
     if icon.cooldown then
         local cooldown = icon.cooldown
         if cooldown.text then
-            cooldown.text:SetFont(fontPath, config.durationSize or 14, fontOutline)
+            cooldown.text:SetFont(durationFontPath, config.durationSize or 14, fontOutline)
             cooldown.text:SetTextColor(dColor[1], dColor[2], dColor[3], dColor[4] or 1)
             pcall(function()
                 cooldown.text:ClearAllPoints()
@@ -931,7 +931,7 @@ local function StyleTrackerIcon(icon, config)
         if ok and regions then
             for _, region in ipairs(regions) do
                 if region and region.GetObjectType and region:GetObjectType() == "FontString" then
-                    region:SetFont(fontPath, config.durationSize or 14, fontOutline)
+                    region:SetFont(durationFontPath, config.durationSize or 14, fontOutline)
                     region:SetTextColor(dColor[1], dColor[2], dColor[3], dColor[4] or 1)
                     pcall(function()
                         region:ClearAllPoints()
@@ -949,7 +949,8 @@ local function StyleTrackerIcon(icon, config)
     end
 
     -- Stack text style
-    icon.stackText:SetFont(fontPath, config.stackSize or 12, fontOutline)
+    local stackFontPath = config.stackFont and LSM:Fetch("font", config.stackFont) or GetGeneralFont()
+    icon.stackText:SetFont(stackFontPath, config.stackSize or 12, fontOutline)
     local sColor = config.stackColor or {1, 1, 1, 1}
     icon.stackText:SetTextColor(sColor[1], sColor[2], sColor[3], sColor[4] or 1)
     icon.stackText:ClearAllPoints()
@@ -966,7 +967,7 @@ local function StyleTrackerIcon(icon, config)
         local db = QUICore and QUICore.db and QUICore.db.profile
         local keybindSettings = db and db.customTrackers and db.customTrackers.keybinds
         if keybindSettings then
-            icon.keybindText:SetFont(fontPath, keybindSettings.keybindTextSize or 10, fontOutline)
+            icon.keybindText:SetFont(GetGeneralFont(), keybindSettings.keybindTextSize or 10, fontOutline)
             local kColor = keybindSettings.keybindTextColor or {1, 0.82, 0, 1}
             icon.keybindText:SetTextColor(kColor[1], kColor[2], kColor[3], kColor[4] or 1)
             icon.keybindText:ClearAllPoints()
@@ -1659,16 +1660,25 @@ function CustomTrackers:StartCooldownPolling(bar)
                         icon.tex:SetDesaturated(false)
                     elseif showOnlyOnCooldown then
                         StopActiveGlow(icon)
+                        -- Determine desaturation based on noDesaturateWithCharges option
+                        -- isOnCD = main cooldown active (0 charges) -> always desaturate
+                        -- rechargeActive but not isOnCD = has charges remaining -> respect option
+                        local shouldDesaturate = true
+                        if config.noDesaturateWithCharges and not isOnCD and rechargeActive then
+                            -- Has charges remaining, option enabled -> don't desaturate
+                            shouldDesaturate = false
+                        end
+
                         if dynamicLayout then
                             -- Dynamic layout shows only when on cooldown (or active handled above)
                             icon:SetAlpha(1)
-                            icon.tex:SetDesaturated(true)
+                            icon.tex:SetDesaturated(shouldDesaturate)
                         else
                             -- Static layout: alpha-based visibility (preserves position)
                             -- For charge spells: show when recharge is active (any charge on cooldown)
                             if isOnCD or rechargeActive then
                                 icon:SetAlpha(1)
-                                icon.tex:SetDesaturated(true)
+                                icon.tex:SetDesaturated(shouldDesaturate)
                             else
                                 icon:SetAlpha(0)
                                 icon.tex:SetDesaturated(false)
